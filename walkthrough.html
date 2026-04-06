@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Freight Bidding Agent — Architecture Walkthrough</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; }
+
+    .slide { display: none; min-height: 100vh; padding: 40px 60px; }
+    .slide.active { display: flex; flex-direction: column; justify-content: center; }
+
+    .nav { position: fixed; bottom: 20px; right: 20px; display: flex; gap: 8px; z-index: 10; }
+    .nav button { padding: 8px 16px; border-radius: 6px; border: 1px solid #475569; background: #1e293b; color: #94a3b8; cursor: pointer; font-size: 13px; }
+    .nav button:hover { background: #334155; color: #e2e8f0; }
+    .nav .page-num { padding: 8px 12px; color: #64748b; font-size: 12px; }
+
+    h1 { font-size: 36px; color: #38bdf8; margin-bottom: 8px; }
+    h2 { font-size: 28px; color: #38bdf8; margin-bottom: 20px; }
+    .subtitle { font-size: 18px; color: #94a3b8; margin-bottom: 40px; }
+
+    /* Flow diagram */
+    .flow { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; margin: 30px 0; }
+    .flow-step { padding: 14px 20px; border-radius: 8px; font-size: 13px; font-weight: 700; text-align: center; min-width: 140px; }
+    .flow-arrow { color: #475569; font-size: 24px; }
+    .step-intake { background: #475569; color: #e2e8f0; }
+    .step-carriers { background: #3b82f6; color: #fff; }
+    .step-received { background: #8b5cf6; color: #fff; }
+    .step-rebid { background: #f59e0b; color: #0f172a; }
+    .step-quote { background: #38bdf8; color: #0f172a; }
+    .step-approved { background: #22c55e; color: #fff; }
+    .step-lost { background: #ef4444; color: #fff; }
+
+    .flow-detail { font-size: 10px; font-weight: 400; margin-top: 4px; opacity: 0.8; }
+
+    /* Grid for evaluation criteria */
+    .criteria-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 20px 0; }
+    .criteria-card { background: #1e293b; border-radius: 8px; padding: 14px 16px; border: 1px solid #334155; }
+    .criteria-num { font-size: 11px; color: #38bdf8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .criteria-title { font-size: 15px; font-weight: 700; color: #e2e8f0; margin-bottom: 4px; }
+    .criteria-how { font-size: 12px; color: #94a3b8; line-height: 1.4; }
+
+    /* Communication flow */
+    .comm-flow { display: flex; flex-direction: column; gap: 10px; margin: 20px 0; max-width: 700px; }
+    .comm-row { display: flex; align-items: center; gap: 12px; }
+    .comm-when { width: 180px; font-size: 12px; color: #94a3b8; text-align: right; flex-shrink: 0; }
+    .comm-line { width: 2px; height: 100%; background: #334155; }
+    .comm-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+    .comm-dot.customer { background: #38bdf8; }
+    .comm-dot.carrier { background: #f59e0b; }
+    .comm-email { font-size: 13px; color: #e2e8f0; }
+    .comm-to { font-size: 11px; color: #64748b; }
+
+    /* AI usage */
+    .ai-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 20px 0; }
+    .ai-card { background: #1e293b; border-radius: 8px; padding: 16px; border: 1px solid #334155; }
+    .ai-card.uses-ai { border-color: #8b5cf6; }
+    .ai-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+    .ai-label.purple { color: #a78bfa; }
+    .ai-label.gray { color: #64748b; }
+    .ai-title { font-size: 14px; font-weight: 600; color: #e2e8f0; margin-bottom: 4px; }
+    .ai-desc { font-size: 12px; color: #94a3b8; }
+
+    /* Production section */
+    .prod-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 20px 0; }
+    .prod-card { background: #1e293b; border-radius: 8px; padding: 12px 14px; border: 1px solid #334155; }
+    .prod-mvp { font-size: 12px; color: #f59e0b; margin-bottom: 3px; }
+    .prod-future { font-size: 12px; color: #22c55e; }
+
+    .big-number { font-size: 64px; font-weight: 800; color: #38bdf8; line-height: 1; }
+    .big-label { font-size: 16px; color: #94a3b8; margin-top: 4px; }
+
+    .stats-row { display: flex; gap: 40px; margin: 30px 0; }
+    .stat { text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- SLIDE 1: Title -->
+  <div class="slide active" id="slide-1">
+    <h1>Freight Bidding Agent</h1>
+    <div class="subtitle">Replacing a 3-24 hour manual workflow with an AI-powered, near real-time quoting engine</div>
+    <div class="stats-row">
+      <div class="stat"><div class="big-number">6</div><div class="big-label">Carriers competing</div></div>
+      <div class="stat"><div class="big-number">2</div><div class="big-label">Bidding rounds</div></div>
+      <div class="stat"><div class="big-number">4</div><div class="big-label">AI touchpoints</div></div>
+      <div class="stat"><div class="big-number">~15s</div><div class="big-label">End-to-end</div></div>
+    </div>
+    <div style="color:#64748b;font-size:13px;margin-top:30px;">Built by Nikunj for AMZ Prep | Node.js + Claude API</div>
+  </div>
+
+  <!-- SLIDE 2: State Machine -->
+  <div class="slide" id="slide-2">
+    <h2>The Agent Pipeline</h2>
+    <div class="subtitle">Every freight request flows through these states — no skipping, every transition logged</div>
+    <div class="flow">
+      <div class="flow-step step-intake">INTAKE<div class="flow-detail">Validate, dedup, create record</div></div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-step step-carriers">OUT TO CARRIERS<div class="flow-detail">Filter + distribute to eligible carriers</div></div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-step step-received">ROUND 1 RECEIVED<div class="flow-detail">Collect + normalize rates</div></div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-step step-rebid">REBID ROUND<div class="flow-detail">Benchmark, rebid, select winner</div></div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-step step-quote">QUOTE SENT<div class="flow-detail">Markup + professional quote</div></div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-step" style="background:#f59e0b;color:#0f172a;">AWAITING APPROVAL<div class="flow-detail">Quote emailed to customer</div></div>
+      <div class="flow-arrow">&rarr;</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div class="flow-step step-approved">APPROVED<div class="flow-detail">Carrier notified, invoice, BOL</div></div>
+        <div class="flow-step step-lost">LOST<div class="flow-detail">Reason captured, carrier notified</div></div>
+      </div>
+    </div>
+    <div style="margin-top:20px;font-size:13px;color:#94a3b8;">
+      <strong style="color:#e2e8f0;">Idempotency:</strong> SHA-256 fingerprint of (origin + destination + weight + customer + date) prevents duplicate quotes<br>
+      <strong style="color:#e2e8f0;">Time-bound:</strong> Late carrier responses after bidding window are rejected and logged<br>
+      <strong style="color:#e2e8f0;">Error state:</strong> If any step fails unexpectedly, quote moves to ERROR with full audit trail
+    </div>
+  </div>
+
+  <!-- SLIDE 3: Where AI Is Used -->
+  <div class="slide" id="slide-3">
+    <h2>Where Claude AI Is Used (and Where It's Not)</h2>
+    <div class="subtitle">The state machine is deterministic. Claude handles the 4 places where human language understanding is needed.</div>
+    <div class="ai-grid">
+      <div class="ai-card uses-ai">
+        <div class="ai-label purple">Claude AI</div>
+        <div class="ai-title">1. Intake Parsing</div>
+        <div class="ai-desc">Customer sends messy email &rarr; Claude extracts origin, destination, weight, pallets, dates</div>
+      </div>
+      <div class="ai-card uses-ai">
+        <div class="ai-label purple">Claude AI</div>
+        <div class="ai-title">2. Rate Normalization</div>
+        <div class="ai-desc">"thirteen hundred", "1302 cad", "$1,302.21 CAD" &rarr; all become structured rate data</div>
+      </div>
+      <div class="ai-card uses-ai">
+        <div class="ai-label purple">Claude AI</div>
+        <div class="ai-title">3. Decision Explanation</div>
+        <div class="ai-desc">Why this carrier won, with specific numbers and context</div>
+      </div>
+      <div class="ai-card uses-ai">
+        <div class="ai-label purple">Claude AI</div>
+        <div class="ai-title">4. Quote Summary</div>
+        <div class="ai-desc">Professional customer-facing quote text ready to send</div>
+      </div>
+      <div class="ai-card">
+        <div class="ai-label gray">Deterministic</div>
+        <div class="ai-title">Everything Else</div>
+        <div class="ai-desc">State machine, carrier filtering, timeout enforcement, rebid logic, markup math, tiebreaker, audit logging</div>
+      </div>
+      <div class="ai-card">
+        <div class="ai-label gray">Graceful Fallback</div>
+        <div class="ai-title">If Claude Goes Down</div>
+        <div class="ai-desc">Template fallbacks for all 4 AI uses. Pipeline never crashes from an LLM failure.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 4: Communication Flow -->
+  <div class="slide" id="slide-4">
+    <h2>Automated Communications</h2>
+    <div class="subtitle">Every touchpoint triggers the right email to the right person</div>
+    <div class="comm-flow">
+      <div class="comm-row">
+        <div class="comm-when">Request received</div>
+        <div class="comm-dot customer"></div>
+        <div><div class="comm-email">Acknowledgement to customer</div><div class="comm-to">"We received your request, quote ID FQ-00001"</div></div>
+      </div>
+      <div class="comm-row">
+        <div class="comm-when">Carriers contacted</div>
+        <div class="comm-dot carrier"></div>
+        <div><div class="comm-email">Rate request to each eligible carrier</div><div class="comm-to">Structured freight details sent to 5-6 carriers</div></div>
+      </div>
+      <div class="comm-row">
+        <div class="comm-when">Rebid round</div>
+        <div class="comm-dot carrier"></div>
+        <div><div class="comm-email">Benchmark notification to non-winners</div><div class="comm-to">"Current lowest is $X, can you beat it within the window?"</div></div>
+      </div>
+      <div class="comm-row">
+        <div class="comm-when">Quote ready</div>
+        <div class="comm-dot customer"></div>
+        <div><div class="comm-email">Formal quote to customer</div><div class="comm-to">Sell rate, transit time, expiry date — carrier cost hidden</div></div>
+      </div>
+      <div class="comm-row">
+        <div class="comm-when">Customer approves</div>
+        <div class="comm-dot carrier"></div>
+        <div><div class="comm-email">Proceed notice to winning carrier</div><div class="comm-to">"Shipment approved, please arrange pickup"</div></div>
+      </div>
+      <div class="comm-row">
+        <div class="comm-when">Customer approves</div>
+        <div class="comm-dot customer"></div>
+        <div><div class="comm-email">Confirmation to customer</div><div class="comm-to">"Shipment confirmed, invoice to follow"</div></div>
+      </div>
+      <div class="comm-row">
+        <div class="comm-when">Customer rejects</div>
+        <div class="comm-dot carrier"></div>
+        <div><div class="comm-email">Cancellation to carrier + close notice to customer</div><div class="comm-to">Rejection reason captured and logged</div></div>
+      </div>
+    </div>
+    <div style="font-size:12px;color:#64748b;margin-top:10px;">
+      <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#38bdf8;margin-right:4px;vertical-align:middle;"></span> Customer emails
+      <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#f59e0b;margin-left:16px;margin-right:4px;vertical-align:middle;"></span> Carrier emails
+    </div>
+  </div>
+
+  <!-- SLIDE 5: Evaluation Criteria -->
+  <div class="slide" id="slide-5">
+    <h2>Blair's 10 Evaluation Criteria</h2>
+    <div class="criteria-grid">
+      <div class="criteria-card">
+        <div class="criteria-num">1. Architecture Clarity</div>
+        <div class="criteria-title">Clean state machine + 1-page ARCHITECTURE.md</div>
+        <div class="criteria-how">7 states, deterministic flow, 4 AI touchpoints clearly separated</div>
+      </div>
+      <div class="criteria-card">
+        <div class="criteria-num">2. State Machine Design</div>
+        <div class="criteria-title">Orchestrator enforces order</div>
+        <div class="criteria-how">No skipping steps. Each state transition logged with timestamp and details</div>
+      </div>
+      <div class="criteria-card">
+        <div class="criteria-num">3. Idempotency</div>
+        <div class="criteria-title">SHA-256 fingerprint dedup</div>
+        <div class="criteria-how">Same request twice = returns existing quote, duplicate: true. No new pipeline.</div>
+      </div>
+      <div class="criteria-card">
+        <div class="criteria-num">4. Rate Parsing</div>
+        <div class="criteria-title">Claude handles messy carrier text</div>
+        <div class="criteria-how">"thirteen hundred", bare numbers, no currency, declines, attachments, questions — all handled</div>
+      </div>
+      <div class="criteria-card">
+        <div class="criteria-num">5. Time-Bound Logic</div>
+        <div class="criteria-title">Bidding windows that close</div>
+        <div class="criteria-how">Late responses rejected and logged. "Not included in evaluation per time-bound rules."</div>
+      </div>
+      <div class="criteria-card">
+        <div class="criteria-num">6. Margin Rule Flexibility</div>
+        <div class="criteria-title">Per-customer markup config</div>
+        <div class="criteria-how">WOOF_PET 12%, SILVERTS 8%, TECHGEAR 15%, FRESHBOX 5%. One config change to adjust.</div>
+      </div>
+      <div class="criteria-card">
+        <div class="criteria-num">7. Error Handling</div>
+        <div class="criteria-title">Try/catch every step + LLM fallbacks</div>
+        <div class="criteria-how">Orchestrator wraps each step. Claude down = template fallback. ERROR state with audit trail.</div>
+      </div>
+      <div class="criteria-card">
+        <div class="criteria-num">8. Data Model</div>
+        <div class="criteria-title">Single structured quote object</div>
+        <div class="criteria-how">Request, carrier_bids, rebid_responses, winning_bid, markup, audit_log, metrics, communications</div>
+      </div>
+      <div class="criteria-card">
+        <div class="criteria-num">9. Audit Trail</div>
+        <div class="criteria-title">Every action logged</div>
+        <div class="criteria-how">Timestamps, from/to state, action description, full details. Foundation for production analytics.</div>
+      </div>
+      <div class="criteria-card">
+        <div class="criteria-num">10. Scalability</div>
+        <div class="criteria-title">Config-driven carrier list</div>
+        <div class="criteria-how">Adding carrier #7 or #50 = one config entry, zero code changes. Quotes are independent.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 6: Design Decisions -->
+  <div class="slide" id="slide-6">
+    <h2>Key Design Decisions</h2>
+    <div class="subtitle">The thinking behind the architecture — why it works this way</div>
+    <div class="criteria-grid">
+      <div class="criteria-card" style="border-left:3px solid #f59e0b;">
+        <div class="criteria-num" style="color:#f59e0b;">Decision 1</div>
+        <div class="criteria-title">Rate vs. Measurement Confusion</div>
+        <div class="criteria-how">Carriers send numbers in context: "24200 lbs", "rate is 2020", "3 days transit." The AI prompt explicitly distinguishes prices from weights from transit times using surrounding context words. A number next to "rate" is a price. A number next to "lbs" is weight. This prevents the most dangerous parsing error — quoting a customer based on a misread number.</div>
+      </div>
+      <div class="criteria-card" style="border-left:3px solid #f59e0b;">
+        <div class="criteria-num" style="color:#f59e0b;">Decision 2</div>
+        <div class="criteria-title">AI at 4 Points, Not Everywhere</div>
+        <div class="criteria-how">The state machine is deterministic — rules-based logic for filtering, timing, markup, tiebreakers. Claude is only called where human language understanding is unavoidable: parsing messy text. This means the system is predictable, testable, and doesn't depend on the LLM for correctness.</div>
+      </div>
+      <div class="criteria-card" style="border-left:3px solid #f59e0b;">
+        <div class="criteria-num" style="color:#f59e0b;">Decision 3</div>
+        <div class="criteria-title">Template Fallbacks for Every AI Call</div>
+        <div class="criteria-how">If Claude goes down, the pipeline keeps running with basic templates. A freight quoting system can't stop working because an LLM API has an outage. The fallbacks aren't as good, but the deal still moves forward.</div>
+      </div>
+      <div class="criteria-card" style="border-left:3px solid #f59e0b;">
+        <div class="criteria-num" style="color:#f59e0b;">Decision 4</div>
+        <div class="criteria-title">Flag Ambiguity, Don't Guess</div>
+        <div class="criteria-how">When a carrier response is ambiguous ("15,00" — is that $15 or $1500?), the system flags it for manual review rather than guessing. A wrong rate is worse than a delayed rate. Same for attachment references and counter-questions from carriers.</div>
+      </div>
+      <div class="criteria-card" style="border-left:3px solid #f59e0b;">
+        <div class="criteria-num" style="color:#f59e0b;">Decision 5</div>
+        <div class="criteria-title">Hard Filter for Carrier Preferences</div>
+        <div class="criteria-how">When FreshBox says "only Amazon Freight," we only contact Amazon Freight. No other carriers. This respects the customer relationship. In production, this could evolve into a weighted preference with a threshold — but for the MVP, we respect the customer's stated preference exactly.</div>
+      </div>
+      <div class="criteria-card" style="border-left:3px solid #f59e0b;">
+        <div class="criteria-num" style="color:#f59e0b;">Decision 6</div>
+        <div class="criteria-title">Audit Trail as Production Foundation</div>
+        <div class="criteria-how">Every state change, carrier response, email, and decision is logged with timestamps. This isn't just for debugging — it's the data layer that powers production analytics: carrier reliability scores, win rates, average turnaround, margin tracking. The MVP logging IS the production data pipeline.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 7: What I'd Build Next -->
+  <div class="slide" id="slide-7">
+    <h2>What I'd Build Next</h2>
+    <div class="subtitle">Production roadmap — turning this MVP into a live freight quoting engine</div>
+    <div class="prod-grid">
+      <div class="prod-card">
+        <div class="prod-mvp">MVP: Simulated carrier responses</div>
+        <div class="prod-future">Phase 1: Gmail API intake — agent reads inbound emails, drafts replies if info is missing, forwards structured requests to carriers</div>
+      </div>
+      <div class="prod-card">
+        <div class="prod-mvp">MVP: Hard-coded carrier reliability (70%, 90%)</div>
+        <div class="prod-future">Phase 1: Weekly auto-update — agent pulls audit trail data, calculates actual response rates, updates carrier profiles. One-click "refresh carrier intelligence" button.</div>
+      </div>
+      <div class="prod-card">
+        <div class="prod-mvp">MVP: Audit log as JSON array</div>
+        <div class="prod-future">Phase 2: Analytics dashboard — win rate by carrier, average margin by customer, turnaround trends, carrier competitiveness scores. Built from the same audit data we're already collecting.</div>
+      </div>
+      <div class="prod-card">
+        <div class="prod-mvp">MVP: In-memory store</div>
+        <div class="prod-future">Phase 2: PostgreSQL with proper indexing, backup, and query layer for the analytics dashboard</div>
+      </div>
+      <div class="prod-card">
+        <div class="prod-mvp">MVP: Carrier question = flagged for human</div>
+        <div class="prod-future">Phase 2: Agent auto-replies using intake data — "Pickup is 9am-noon, weight confirmed at 24,200 lbs" — keeps bidding moving without human intervention</div>
+      </div>
+      <div class="prod-card">
+        <div class="prod-mvp">MVP: Approve/reject via button click</div>
+        <div class="prod-future">Phase 2: Smart email approval — agent reads customer reply ("yes that works", "go ahead", "approved"), understands intent, and auto-approves. Ambiguous replies flagged for human review.</div>
+      </div>
+      <div class="prod-card">
+        <div class="prod-mvp">MVP: Fully automated winner selection</div>
+        <div class="prod-future">Phase 2: Human-in-the-loop — broker reviews the agent's recommendation before sending quote. Override option to pick a different carrier for relationship or performance reasons. Logged in audit trail.</div>
+      </div>
+      <div class="prod-card">
+        <div class="prod-mvp">MVP: JSON quote output</div>
+        <div class="prod-future">Phase 3: PandaDoc integration for professional quote generation + e-signature approval flow</div>
+      </div>
+      <div class="prod-card">
+        <div class="prod-mvp">MVP: Lowest rate wins</div>
+        <div class="prod-future">Phase 3: Weighted carrier scoring — price (70%) + transit speed (20%) + reliability history (10%). Configurable per customer.</div>
+      </div>
+      <div class="prod-card">
+        <div class="prod-mvp">MVP: Unknown customer = error</div>
+        <div class="prod-future">Phase 3: Auto-onboard with default 10% markup, flag for sales team to configure terms. Never lose a deal because the customer isn't in the system.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 8: Carrier Filtering Logic -->
+  <div class="slide" id="slide-8">
+    <h2>Carrier Filtering Logic</h2>
+    <div class="subtitle">Before contacting anyone, the system runs three filters in order</div>
+    <div style="display:flex;flex-direction:column;gap:16px;max-width:800px;">
+      <div style="display:flex;align-items:center;gap:16px;">
+        <div style="width:40px;height:40px;border-radius:50%;background:#3b82f6;display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0;">1</div>
+        <div class="criteria-card" style="flex:1;margin:0;">
+          <div class="criteria-title">Start with all 6 carriers</div>
+          <div class="criteria-how">SmarteFreight, Reach & Freight, Borderless, Consolidated Fastrate, Amazon Freight, XPO Logistics</div>
+        </div>
+      </div>
+      <div style="text-align:center;color:#475569;font-size:20px;">&#8595;</div>
+      <div style="display:flex;align-items:center;gap:16px;">
+        <div style="width:40px;height:40px;border-radius:50%;background:#f59e0b;display:flex;align-items:center;justify-content:center;font-weight:800;color:#0f172a;flex-shrink:0;">2</div>
+        <div class="criteria-card" style="flex:1;margin:0;border-color:#f59e0b;">
+          <div class="criteria-title">Destination Filter</div>
+          <div class="criteria-how">Is destination an Amazon/FBA warehouse? If NO → remove Amazon Freight (they only service Amazon destinations)</div>
+        </div>
+      </div>
+      <div style="text-align:center;color:#475569;font-size:20px;">&#8595;</div>
+      <div style="display:flex;align-items:center;gap:16px;">
+        <div style="width:40px;height:40px;border-radius:50%;background:#ef4444;display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0;">3</div>
+        <div class="criteria-card" style="flex:1;margin:0;border-color:#ef4444;">
+          <div class="criteria-title">Exclusion Filter</div>
+          <div class="criteria-how">Does this customer exclude any carriers? If YES → remove them. Example: TechGear excludes XPO → XPO never contacted for TechGear shipments</div>
+        </div>
+      </div>
+      <div style="text-align:center;color:#475569;font-size:20px;">&#8595;</div>
+      <div style="display:flex;align-items:center;gap:16px;">
+        <div style="width:40px;height:40px;border-radius:50%;background:#8b5cf6;display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0;">4</div>
+        <div class="criteria-card" style="flex:1;margin:0;border-color:#8b5cf6;">
+          <div class="criteria-title">Preference Filter</div>
+          <div class="criteria-how">Does this customer have preferred carriers? If YES → only contact those. Example: FreshBox prefers Amazon Freight → only Amazon Freight contacted. Safety net: if preferred carrier is ineligible, fall back to all remaining carriers.</div>
+        </div>
+      </div>
+      <div style="text-align:center;color:#475569;font-size:20px;">&#8595;</div>
+      <div style="display:flex;align-items:center;gap:16px;">
+        <div style="width:40px;height:40px;border-radius:50%;background:#22c55e;display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0;">&#10003;</div>
+        <div class="criteria-card" style="flex:1;margin:0;border-color:#22c55e;">
+          <div class="criteria-title">Contact surviving carriers only</div>
+          <div class="criteria-how">Every filtering decision is logged in the audit trail. No carrier is contacted unnecessarily. No customer gets a quote from a carrier they don't want.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 9: Failure Cascade -->
+  <div class="slide" id="slide-9">
+    <h2>When Things Go Wrong</h2>
+    <div class="subtitle">Every failure has a planned response — the system never crashes, never guesses, never loses data</div>
+    <div class="criteria-grid">
+      <div class="criteria-card" style="border-left:3px solid #ef4444;">
+        <div class="criteria-num" style="color:#ef4444;">Layer 1: Claude API Down</div>
+        <div class="criteria-title">Template fallbacks for all 4 AI calls</div>
+        <div class="criteria-how">Messy carriers → flagged for manual review. Quote summary → basic template. Decision explanation → simple statement. Pipeline keeps running.</div>
+      </div>
+      <div class="criteria-card" style="border-left:3px solid #ef4444;">
+        <div class="criteria-num" style="color:#ef4444;">Layer 2: Orchestrator Step Fails</div>
+        <div class="criteria-title">Try/catch on every pipeline step</div>
+        <div class="criteria-how">If any step throws an unexpected error → state set to ERROR, failure logged in audit trail with details, quote returned in current state. Nothing lost.</div>
+      </div>
+      <div class="criteria-card" style="border-left:3px solid #f59e0b;">
+        <div class="criteria-num" style="color:#f59e0b;">Layer 3: Carrier Failures</div>
+        <div class="criteria-title">Timeout, decline, question, attachment</div>
+        <div class="criteria-how">Timeout → skipped, logged. Decline ("no trucks") → marked declined, skipped. Question → flagged for follow-up. Attachment → flagged for manual review. Pipeline continues with whatever we have.</div>
+      </div>
+      <div class="criteria-card" style="border-left:3px solid #f59e0b;">
+        <div class="criteria-num" style="color:#f59e0b;">Layer 4: All Carriers Fail</div>
+        <div class="criteria-title">State → LOST</div>
+        <div class="criteria-how">If every carrier times out, declines, or requires manual review → quote is set to LOST with reason "No valid carrier responses received." Customer is notified.</div>
+      </div>
+      <div class="criteria-card" style="border-left:3px solid #38bdf8;">
+        <div class="criteria-num" style="color:#38bdf8;">Layer 5: Bad Input</div>
+        <div class="criteria-title">Caught before pipeline starts</div>
+        <div class="criteria-how">Missing fields → 400 error with exact list. Unknown customer → clear error with valid options. Duplicate request → returns existing quote. Empty body → lists all 7 required fields.</div>
+      </div>
+      <div class="criteria-card" style="border-left:3px solid #38bdf8;">
+        <div class="criteria-num" style="color:#38bdf8;">Layer 6: Ambiguous Data</div>
+        <div class="criteria-title">Flag it, don't guess</div>
+        <div class="criteria-how">"15,00" — is that $15 or $1,500? Rather than guessing wrong, we flag for manual review. A wrong rate is worse than a delayed rate. Same for rate-per-mile, attachment references, confusing number formats.</div>
+      </div>
+      <div class="criteria-card" style="border-left:3px solid #22c55e;">
+        <div class="criteria-num" style="color:#22c55e;">Layer 7: Time-Bound Enforcement</div>
+        <div class="criteria-title">Late responses rejected</div>
+        <div class="criteria-how">If a carrier responds after the bidding window closes → their rate is logged but NOT included in evaluation. Audit trail: "Late response from [carrier]. Not included per time-bound rules."</div>
+      </div>
+      <div class="criteria-card" style="border-left:3px solid #22c55e;">
+        <div class="criteria-num" style="color:#22c55e;">At Scale: 100+ Carriers</div>
+        <div class="criteria-title">Architecture supports it today</div>
+        <div class="criteria-how">Carriers are a config array — adding carrier #7 or #100 is one entry, zero code changes. Production adds: batch processing, circuit breaker for failing carriers, queue system for concurrent quotes.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 10: Loom Recording Checklist -->
+  <div class="slide" id="slide-10">
+    <h2>Loom Checklist</h2>
+    <div class="subtitle">What Blair and Sarah asked to see — your recording guide</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+      <div>
+        <div style="color:#f59e0b;font-weight:700;font-size:13px;margin-bottom:10px;">SARAH'S 3 REQUIREMENTS</div>
+        <div class="criteria-card">
+          <div class="criteria-title">1. Show it running end to end</div>
+          <div class="criteria-how">Submit a request → carriers bid → rebid → winner → markup → quote → approve/reject. Show the live demo page.</div>
+        </div>
+        <div class="criteria-card" style="margin-top:8px;">
+          <div class="criteria-title">2. Walk through design decisions</div>
+          <div class="criteria-how">Slides 3-7: Design decisions, AI usage, filtering, failure handling, communications.</div>
+        </div>
+        <div class="criteria-card" style="margin-top:8px;">
+          <div class="criteria-title">3. Tell us what you'd build next</div>
+          <div class="criteria-how">Slide 9: Gmail intake, weekly carrier intelligence, analytics dashboard, PandaDoc, weighted scoring.</div>
+        </div>
+      </div>
+      <div>
+        <div style="color:#38bdf8;font-weight:700;font-size:13px;margin-bottom:10px;">YOUR RECORDING FLOW</div>
+        <div style="font-size:13px;line-height:2;color:#94a3b8;">
+          1. Slides 1-2: Intro + state machine diagram<br>
+          2. Switch to demo — submit "6 Carriers Competing" scenario<br>
+          3. Walk through: bids, winner, markup, quote, communications, audit trail<br>
+          4. Click Approve — show AWAITING_APPROVAL → APPROVED<br>
+          5. Submit "Raw Email" tab — show Claude parsing messy text<br>
+          6. Submit "XPO Excluded" scenario — point out carrier filtering<br>
+          7. Reject that quote — show LOST state + reason captured<br>
+          8. Show Analytics panel on sidebar — updated live<br>
+          9. Back to walkthrough — slides 3-8 (decisions, AI, filtering, failures, comms, criteria)<br>
+          10. Slide 9 — what you'd build next<br>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:20px;padding:12px;background:#1e293b;border-radius:8px;border:1px solid #334155;">
+      <div style="color:#f59e0b;font-size:12px;font-weight:700;margin-bottom:4px;">KEY TALKING POINT</div>
+      <div style="font-size:13px;color:#e2e8f0;">"The current manual process takes 3-24 hours. This system does it in 15 seconds. That's the core value. And every carrier response, every decision, every email is logged — building the data layer that powers production analytics, carrier intelligence, and weekly reporting."</div>
+    </div>
+  </div>
+
+  <div class="nav">
+    <button onclick="prevSlide()">&larr; Prev</button>
+    <span class="page-num" id="page-num">1 / 10</span>
+    <button onclick="nextSlide()">Next &rarr;</button>
+  </div>
+
+  <script>
+    // Reorder slides to match Sarah's presentation flow:
+    // 1. Show it running end to end → 2. Walk through decisions → 3. What you'd build next
+    const SLIDE_ORDER = [
+      'slide-1',   // 1. Title + key stats
+      'slide-2',   // 2. State Machine (context before live demo)
+                   //    → SWITCH TO LIVE DEMO HERE ←
+      'slide-6',   // 3. Design Decisions (why these choices)
+      'slide-3',   // 4. Where AI Is Used (4 points only)
+      'slide-8',   // 5. Carrier Filtering Logic (step by step)
+      'slide-9',   // 6. When Things Go Wrong (failure layers)
+      'slide-4',   // 7. Communications Flow (emails at every stage)
+      'slide-5',   // 8. Blair's 10 Evaluation Criteria
+      'slide-7',   // 9. What I'd Build Next (production roadmap)
+      'slide-10',  // 10. Loom Checklist (your recording reference)
+    ];
+
+    let current = 0;
+    const total = SLIDE_ORDER.length;
+
+    function showSlide(n) {
+      document.querySelectorAll('.slide').forEach(s => s.classList.remove('active'));
+      document.getElementById(SLIDE_ORDER[n]).classList.add('active');
+      document.getElementById('page-num').textContent = (n + 1) + ' / ' + total;
+    }
+
+    function nextSlide() { if (current < total - 1) { current++; showSlide(current); } }
+    function prevSlide() { if (current > 0) { current--; showSlide(current); } }
+
+    // Show first slide on load
+    showSlide(0);
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); nextSlide(); }
+      if (e.key === 'ArrowLeft') { e.preventDefault(); prevSlide(); }
+    });
+  </script>
+</body>
+</html>

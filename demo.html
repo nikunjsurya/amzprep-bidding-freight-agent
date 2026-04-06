@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AMZ Prep Freight Bidding Agent — Demo</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; padding: 20px; }
+    h1 { color: #38bdf8; margin-bottom: 4px; font-size: 22px; }
+    h2 { color: #94a3b8; font-size: 14px; margin-bottom: 20px; font-weight: normal; }
+    h3 { color: #38bdf8; font-size: 16px; margin: 16px 0 10px; }
+
+    .container { max-width: 1200px; margin: 0 auto; }
+    .grid { display: grid; grid-template-columns: 380px 1fr; gap: 20px; }
+
+    /* Left panel — input form */
+    .panel { background: #1e293b; border-radius: 8px; padding: 16px; border: 1px solid #334155; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+    .tab { padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; border: 1px solid #475569; background: transparent; color: #94a3b8; }
+    .tab.active { background: #38bdf8; color: #0f172a; border-color: #38bdf8; font-weight: 600; }
+
+    label { display: block; font-size: 12px; color: #94a3b8; margin: 8px 0 3px; text-transform: uppercase; letter-spacing: 0.5px; }
+    input, select, textarea { width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #e2e8f0; font-size: 13px; }
+    textarea { height: 100px; resize: vertical; font-family: inherit; }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: #38bdf8; }
+
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+    .btn { padding: 10px 16px; border-radius: 6px; border: none; cursor: pointer; font-size: 14px; font-weight: 600; width: 100%; margin-top: 12px; }
+    .btn-primary { background: #38bdf8; color: #0f172a; }
+    .btn-primary:hover { background: #7dd3fc; }
+    .btn-primary:disabled { background: #475569; color: #94a3b8; cursor: not-allowed; }
+    .btn-approve { background: #22c55e; color: #fff; }
+    .btn-approve:hover { background: #4ade80; }
+    .btn-reject { background: #ef4444; color: #fff; }
+    .btn-reject:hover { background: #f87171; }
+    .btn-sm { padding: 6px 12px; font-size: 12px; width: auto; margin-top: 0; }
+
+    /* Right panel — results */
+    .results { display: flex; flex-direction: column; gap: 12px; }
+    .card { background: #1e293b; border-radius: 8px; padding: 14px; border: 1px solid #334155; }
+    .card-header { font-size: 13px; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; font-weight: 600; }
+
+    .status-badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+    .status-INTAKE { background: #475569; color: #e2e8f0; }
+    .status-OUT_TO_CARRIERS { background: #3b82f6; color: #fff; }
+    .status-FIRST_ROUND_RECEIVED { background: #8b5cf6; color: #fff; }
+    .status-REBID_ROUND { background: #f59e0b; color: #0f172a; }
+    .status-QUOTE_SENT { background: #38bdf8; color: #0f172a; }
+    .status-AWAITING_APPROVAL { background: #f59e0b; color: #0f172a; }
+    .status-ERROR { background: #dc2626; color: #fff; }
+    .status-APPROVED { background: #22c55e; color: #fff; }
+    .status-LOST { background: #ef4444; color: #fff; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th { text-align: left; color: #94a3b8; padding: 4px 6px; border-bottom: 1px solid #334155; font-weight: 600; }
+    td { padding: 4px 6px; border-bottom: 1px solid #1e293b; }
+    tr.winner td { background: rgba(34, 197, 94, 0.1); }
+    tr.timed-out td { color: #64748b; }
+
+    .metric { display: inline-block; margin-right: 16px; }
+    .metric-value { font-size: 18px; font-weight: 700; color: #38bdf8; }
+    .metric-label { font-size: 11px; color: #94a3b8; }
+
+    .audit-entry { font-size: 11px; padding: 4px 0; border-bottom: 1px solid #1e293b; font-family: monospace; }
+    .audit-entry .state { color: #f59e0b; }
+    .audit-entry .action { color: #e2e8f0; }
+    .audit-entry .time { color: #64748b; }
+
+    .summary-text { font-size: 13px; line-height: 1.5; color: #cbd5e1; font-style: italic; padding: 10px; background: #0f172a; border-radius: 6px; }
+
+    .loading { text-align: center; padding: 40px; color: #94a3b8; }
+    .loading .spinner { display: inline-block; width: 24px; height: 24px; border: 3px solid #475569; border-top-color: #38bdf8; border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 8px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .error-msg { background: #7f1d1d; color: #fca5a5; padding: 10px; border-radius: 6px; font-size: 13px; margin-top: 8px; }
+    .hidden { display: none; }
+
+    .quote-list { margin-top: 16px; }
+    .quote-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; background: #1e293b; border-radius: 6px; margin-bottom: 6px; border: 1px solid #334155; cursor: pointer; font-size: 13px; }
+    .quote-row:hover { border-color: #38bdf8; }
+
+    .action-bar { display: flex; gap: 8px; margin-top: 12px; }
+    .reject-reason { margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>AMZ Prep Freight Bidding Agent</h1>
+    <h2>AI-Powered Freight Quoting System — MVP Demo</h2>
+
+    <div class="grid">
+      <!-- LEFT: Input Form -->
+      <div>
+        <div class="panel">
+          <div class="tabs">
+            <div class="tab active" onclick="switchTab('structured')">Structured</div>
+            <div class="tab" onclick="switchTab('unstructured')">Raw Email</div>
+          </div>
+          <div style="display:flex;gap:8px;margin-bottom:10px;">
+            <div style="flex:1;background:#0f172a;padding:6px 8px;border-radius:6px;text-align:center;border:1px solid #334155;">
+              <div style="font-size:12px;font-weight:700;color:#f59e0b;">2s</div>
+              <div style="font-size:9px;color:#64748b;">Round 1 Window</div>
+              <div style="font-size:8px;color:#475569;">Prod: 2 hours</div>
+            </div>
+            <div style="flex:1;background:#0f172a;padding:6px 8px;border-radius:6px;text-align:center;border:1px solid #334155;">
+              <div style="font-size:12px;font-weight:700;color:#f59e0b;">1s</div>
+              <div style="font-size:9px;color:#64748b;">Rebid Window</div>
+              <div style="font-size:8px;color:#475569;">Prod: 30 min</div>
+            </div>
+            <div style="flex:1;background:#0f172a;padding:6px 8px;border-radius:6px;text-align:center;border:1px solid #334155;">
+              <div style="font-size:12px;font-weight:700;color:#38bdf8;">7d</div>
+              <div style="font-size:9px;color:#64748b;">Quote Expiry</div>
+              <div style="font-size:8px;color:#475569;">Configurable</div>
+            </div>
+          </div>
+
+          <!-- Structured input -->
+          <div id="structured-form">
+            <label>Scenario (select to prefill)</label>
+            <select id="scenario-select" onchange="loadScenario()">
+              <option value="">— Choose a demo scenario or fill manually —</option>
+              <option value="full_competition">6 Carriers Competing — WOOF_PET, Amazon dest, all carriers eligible, rebid round active</option>
+              <option value="xpo_excluded">XPO Excluded — TECHGEAR, Amazon dest, 5 carriers (XPO filtered out)</option>
+              <option value="non_amazon">Non-Amazon Dest — TECHGEAR, 4 carriers (XPO excluded + Amazon Freight ineligible)</option>
+              <option value="single_carrier">Single Carrier — FRESHBOX, Amazon dest, only Amazon Freight (no rebid)</option>
+              <option value="preference_fallback">Preference Fallback — FRESHBOX, non-Amazon dest, preferred carrier ineligible, falls back to 5</option>
+              <option value="duplicate_test">Duplicate Test — Same as scenario 1 (submit twice to see dedup)</option>
+            </select>
+            <label>Customer</label>
+            <select id="customer_id">
+              <option value="WOOF_PET">Woof Pet Inc (12% markup, no preferences)</option>
+              <option value="SILVERTS">Silvert's Adaptive (8% markup, prefers SmarteFreight only)</option>
+              <option value="TECHGEAR">TechGear Direct (15% markup, excludes XPO)</option>
+              <option value="FRESHBOX">FreshBox Organics (5% markup, prefers Amazon Freight only)</option>
+            </select>
+            <label>Origin</label>
+            <input type="text" id="origin" value="180 W 70th Ave, Denver, CO 80221" />
+            <label>Destination</label>
+            <input type="text" id="destination" value="Amazon YVR4, 4189 Salish Sea Way, Tsawwassen, BC V4M 0B9" />
+            <div class="row">
+              <div><label>Weight (lbs)</label><input type="number" id="weight_lbs" value="24200" /></div>
+              <div><label>Pallets</label><input type="number" id="pallets" value="28" /></div>
+            </div>
+            <label>Cargo Type</label>
+            <input type="text" id="cargo_type" value="pet food" />
+            <label>Pickup Date</label>
+            <input type="date" id="pickup_date" value="2026-03-05" />
+            <div class="row">
+              <div><label>Hazmat</label><select id="hazmat"><option value="false">No</option><option value="true">Yes</option></select></div>
+              <div><label>Stackable</label><select id="stackable"><option value="false">No</option><option value="true">Yes</option></select></div>
+            </div>
+          </div>
+
+          <!-- Unstructured input -->
+          <div id="unstructured-form" class="hidden">
+            <label>Customer</label>
+            <select id="customer_id_raw">
+              <option value="WOOF_PET">Woof Pet Inc (12% markup)</option>
+              <option value="SILVERTS">Silvert's Adaptive Clothing (8% markup)</option>
+              <option value="TECHGEAR">TechGear Direct (15% markup, no XPO)</option>
+              <option value="FRESHBOX">FreshBox Organics (5% markup, prefers Amazon)</option>
+            </select>
+            <label>Example Emails (select to load)</label>
+            <select id="email-examples" onchange="loadExample()">
+              <option value="">— Select a messy email example or write your own —</option>
+              <option value="standard">Standard Email — all info present, Claude extracts fields</option>
+              <option value="casual">Casual/Slangy — informal tone, abbreviations, lowercase</option>
+              <option value="missing_weight">Missing Weight — Claude flags the missing field</option>
+              <option value="cross_border">Cross-Border — US to Canada shipment</option>
+              <option value="amazon_dest">Amazon FBA Dest — triggers Amazon Freight eligibility</option>
+              <option value="multi_detail">Detailed Email — lots of info, special requirements</option>
+            </select>
+            <label>Customer Email / Message</label>
+            <textarea id="raw_text">Hi AMZ team, please review details for our next shipment. Targeting pickup Thursday 3/5 from our Denver facility at 180 W 70th Ave, Denver CO 80221. 28 pallets of pet food, total weight 24200 lbs, non-stackable. Ship to Amazon YVR4 in Tsawwassen BC V4M 0B9. No hazmat.</textarea>
+          </div>
+
+          <button class="btn btn-primary" id="submit-btn" onclick="submitQuote()">Submit Freight Request</button>
+          <div id="submit-error" class="error-msg hidden"></div>
+        </div>
+
+        <!-- Previous Quotes -->
+        <div class="panel" style="margin-top: 12px;">
+          <div class="card-header">Previous Quotes</div>
+          <div style="font-size:10px;color:#64748b;margin-bottom:6px;font-style:italic;">MVP: In-memory store, resets on server restart. In production, persistent database with full search and filtering.</div>
+          <div id="quotes-list"><span style="color:#64748b;font-size:12px;">No quotes yet</span></div>
+          <button class="btn btn-sm" style="margin-top:8px;background:#334155;color:#94a3b8;" onclick="refreshQuotes()">Refresh</button>
+        </div>
+
+        <!-- Analytics -->
+        <div class="panel" style="margin-top: 12px;">
+          <div class="card-header">Analytics</div>
+          <div style="font-size:10px;color:#64748b;margin-bottom:6px;font-style:italic;">MVP: Calculated from in-memory quote data. In production, powered by a persistent analytics engine with weekly reports and trend tracking.</div>
+          <div id="analytics-panel"><span style="color:#64748b;font-size:12px;">Submit quotes to see analytics</span></div>
+          <button class="btn btn-sm" style="margin-top:8px;background:#334155;color:#94a3b8;" onclick="refreshAnalytics()">Refresh Analytics</button>
+        </div>
+      </div>
+
+      <!-- RIGHT: Results -->
+      <div class="results" id="results">
+        <div class="card" style="text-align:center;padding:60px 20px;">
+          <div style="color:#64748b;font-size:14px;">Submit a freight request to see the agent in action</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API = '';
+    let currentQuoteId = null;
+    let currentTab = 'structured';
+
+    const SCENARIOS = {
+      full_competition: {
+        customer: 'WOOF_PET', origin: '180 W 70th Ave, Denver, CO 80221',
+        destination: 'Amazon YVR4, 4189 Salish Sea Way, Tsawwassen, BC V4M 0B9',
+        weight: 24200, pallets: 28, cargo: 'pet food', date: '2026-03-05'
+      },
+      xpo_excluded: {
+        customer: 'TECHGEAR', origin: '789 Tech Blvd, San Jose, CA 95110',
+        destination: 'Amazon YVR4, 4189 Salish Sea Way, Tsawwassen, BC V4M 0B9',
+        weight: 28500, pallets: 35, cargo: 'electronics', date: '2026-04-18'
+      },
+      non_amazon: {
+        customer: 'TECHGEAR', origin: '100 Main St, Toronto, ON',
+        destination: '500 Warehouse Blvd, Montreal, QC H3C 1A1',
+        weight: 8000, pallets: 10, cargo: 'electronics', date: '2026-04-12'
+      },
+      single_carrier: {
+        customer: 'FRESHBOX', origin: '200 Farm Rd, Calgary, AB T2P 2M5',
+        destination: 'Amazon YEG1, Edmonton, AB',
+        weight: 15000, pallets: 18, cargo: 'organic produce', date: '2026-04-15'
+      },
+      preference_fallback: {
+        customer: 'FRESHBOX', origin: '200 Farm Rd, Calgary, AB T2P 2M5',
+        destination: '500 Warehouse Blvd, Montreal, QC H3C 1A1',
+        weight: 12000, pallets: 14, cargo: 'organic snacks', date: '2026-04-20'
+      },
+      duplicate_test: {
+        customer: 'WOOF_PET', origin: '180 W 70th Ave, Denver, CO 80221',
+        destination: 'Amazon YVR4, 4189 Salish Sea Way, Tsawwassen, BC V4M 0B9',
+        weight: 24200, pallets: 28, cargo: 'pet food', date: '2026-03-05'
+      }
+    };
+
+    function loadScenario() {
+      const sel = document.getElementById('scenario-select').value;
+      if (!sel || !SCENARIOS[sel]) return;
+      const s = SCENARIOS[sel];
+      document.getElementById('customer_id').value = s.customer;
+      document.getElementById('origin').value = s.origin;
+      document.getElementById('destination').value = s.destination;
+      document.getElementById('weight_lbs').value = s.weight;
+      document.getElementById('pallets').value = s.pallets;
+      document.getElementById('cargo_type').value = s.cargo;
+      document.getElementById('pickup_date').value = s.date;
+    }
+
+    const EMAIL_EXAMPLES = {
+      standard: {
+        customer: 'WOOF_PET',
+        text: `Hi AMZ team, please review details for our next MM shipment below. Targeting pick up Thursday 3/5 from our Denver facility at 180 W 70th Ave, Denver CO 80221. 28 pallets of pet food, total weight 24200 lbs, non-stackable. Ship to Amazon YVR4 in Tsawwassen BC V4M 0B9. No hazmat.`
+      },
+      casual: {
+        customer: 'SILVERTS',
+        text: `hey cheryl, need to move some stuff asap. got 12 pallets of adaptive clothing, around 8500 lbs sitting at our warehouse 450 Industrial Pkwy, Richmond BC V6V 1L5. needs to go to Amazon YEG1 in Edmonton AB. can we get this picked up by april 15? not hazmat, not stackable. thanks - kaitlyn`
+      },
+      missing_weight: {
+        customer: 'TECHGEAR',
+        text: `Hello AMZ Prep, we need a quote for shipping electronics from our Toronto warehouse at 100 Bay Street, Toronto ON M5J 2X8 to 500 Warehouse Blvd, Montreal QC H3C 1A1. We have 10 pallets ready for pickup on April 20th. Not hazmat. Please advise on rates.`
+      },
+      cross_border: {
+        customer: 'WOOF_PET',
+        text: `Hi team, Chase here from Woof Pet. We need to move 20 pallets (18000 lbs) of premium dog food from our US facility at 500 Commerce Dr, Buffalo NY 14228 across the border to our Canadian distribution center at 2100 Derry Rd E, Mississauga ON L5S 0A6. Pickup date March 12. Standard dry goods, no hazmat, non-stackable.`
+      },
+      amazon_dest: {
+        customer: 'FRESHBOX',
+        text: `AMZ Prep - Sarah from FreshBox here. We have an urgent FBA replenishment. 15 pallets of organic snack boxes, total weight about 12000 lbs. Shipping from our farm facility at 200 Farm Rd, Calgary AB T2P 2M5 to Amazon YEG1 warehouse in Edmonton. Need pickup by April 8. No hazmat, standard pallets.`
+      },
+      multi_detail: {
+        customer: 'TECHGEAR',
+        text: `Hi AMZ Prep team, Mike from TechGear Direct here. We need to ship a large order of consumer electronics. Details below:\n\nOrigin: TechGear warehouse, 789 Tech Blvd, San Jose CA 95110\nDestination: Amazon YVR4, 4189 Salish Sea Way, Tsawwassen BC V4M 0B9\nCargo: 35 pallets of assorted electronics (tablets, speakers, accessories)\nTotal weight: 28500 lbs\nDimensions: mixed pallet heights, 48-60 inches\nPickup date: April 18, 2026\nHazmat: No (lithium batteries removed)\nStackable: No\nSpecial requirements: Temperature sensitive - keep below 85F\n\nPlease provide your best rate. Thanks, Mike`
+      }
+    };
+
+    function loadExample() {
+      const sel = document.getElementById('email-examples').value;
+      if (!sel || !EMAIL_EXAMPLES[sel]) return;
+      const ex = EMAIL_EXAMPLES[sel];
+      document.getElementById('raw_text').value = ex.text;
+      document.getElementById('customer_id_raw').value = ex.customer;
+    }
+
+    function switchTab(tab) {
+      currentTab = tab;
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelector(`.tab[onclick="switchTab('${tab}')"]`).classList.add('active');
+      document.getElementById('structured-form').classList.toggle('hidden', tab !== 'structured');
+      document.getElementById('unstructured-form').classList.toggle('hidden', tab !== 'unstructured');
+    }
+
+    async function submitQuote() {
+      const btn = document.getElementById('submit-btn');
+      const errEl = document.getElementById('submit-error');
+      errEl.classList.add('hidden');
+      btn.disabled = true;
+      btn.textContent = 'Running pipeline...';
+
+      // Show loading state
+      document.getElementById('results').innerHTML = `
+        <div class="card loading">
+          <div class="spinner"></div>
+          <div>Running the full bidding pipeline...</div>
+          <div style="font-size:12px;color:#64748b;margin-top:4px;">Contacting carriers, normalizing rates, running rebid...</div>
+        </div>`;
+
+      let body;
+      if (currentTab === 'structured') {
+        body = {
+          origin: document.getElementById('origin').value,
+          destination: document.getElementById('destination').value,
+          weight_lbs: Number(document.getElementById('weight_lbs').value),
+          pallets: Number(document.getElementById('pallets').value),
+          cargo_type: document.getElementById('cargo_type').value,
+          pickup_date: document.getElementById('pickup_date').value,
+          customer_id: document.getElementById('customer_id').value,
+          hazmat: document.getElementById('hazmat').value === 'true',
+          stackable: document.getElementById('stackable').value === 'true'
+        };
+      } else {
+        body = {
+          raw_text: document.getElementById('raw_text').value,
+          customer_id: document.getElementById('customer_id_raw').value
+        };
+      }
+
+      try {
+        const res = await fetch(API + '/api/quote', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const data = await res.json();
+
+        if (data.error) {
+          errEl.textContent = data.error;
+          errEl.classList.remove('hidden');
+          document.getElementById('results').innerHTML = '<div class="card" style="text-align:center;padding:60px;color:#64748b;">Fix the error and try again</div>';
+          btn.disabled = false;
+          btn.textContent = 'Submit Freight Request';
+          return;
+        }
+
+        if (data.duplicate) {
+          errEl.textContent = 'Duplicate request detected. Showing existing quote ' + data.quote.id + '.';
+          errEl.classList.remove('hidden');
+          errEl.style.background = '#713f12';
+          errEl.style.color = '#fde68a';
+        }
+
+        currentQuoteId = data.quote.id;
+        renderQuote(data.quote);
+        refreshQuotes();
+        refreshAnalytics();
+      } catch (e) {
+        errEl.textContent = 'Network error: ' + e.message;
+        errEl.classList.remove('hidden');
+        document.getElementById('results').innerHTML = '<div class="card" style="text-align:center;padding:60px;color:#64748b;">Connection failed</div>';
+      }
+
+      btn.disabled = false;
+      btn.textContent = 'Submit Freight Request';
+    }
+
+    // Format a number as $X.XX — always 2 decimal places
+    function fmt(n) {
+      if (n === null || n === undefined) return '—';
+      return '$' + Number(n).toFixed(2);
+    }
+
+    function renderQuote(q) {
+      const w = q.winning_bid;
+      const m = q.markup;
+
+      // Carrier bids table
+      let bidsHtml = '<table><tr><th>Carrier</th><th>Rate</th><th>Transit</th><th>Status</th></tr>';
+      q.carrier_bids.forEach(b => {
+        let cls = '';
+        if (w && b.carrier_id === w.carrier_id) cls = 'winner';
+        else if (!b.responded) cls = 'timed-out';
+
+        let status = '';
+        if (!b.responded) status = '<span style="color:#ef4444">Timed out</span>';
+        else if (b.declined) status = '<span style="color:#f59e0b">Declined</span>';
+        else if (b.requires_manual_review) status = '<span style="color:#f59e0b">Manual review</span>';
+        else if (b.awaiting_info) status = '<span style="color:#a78bfa">Asked question</span>';
+        else status = '<span style="color:#22c55e">Quoted</span>';
+
+        let rate = b.total_rate ? fmt(b.total_rate) : '—';
+        let transit = b.transit_days ? (b.transit_days + ' days') : '—';
+        let name = b.carrier_name;
+        if (w && b.carrier_id === w.carrier_id) name = '&#9733; ' + name;
+
+        bidsHtml += '<tr class="' + cls + '"><td>' + name + '</td><td>' + rate + '</td><td>' + transit + '</td><td>' + status + '</td></tr>';
+      });
+      bidsHtml += '</table>';
+
+      // Rebid table
+      let rebidHtml = '';
+      if (q.rebid_responses && q.rebid_responses.length > 0) {
+        rebidHtml = '<table><tr><th>Carrier</th><th>New Rate</th><th>Notes</th></tr>';
+        q.rebid_responses.forEach(r => {
+          rebidHtml += '<tr><td>' + r.carrier_name + '</td><td>' + fmt(r.total_rate) + '</td><td style="font-size:11px;color:#94a3b8">' + (r.notes || '') + '</td></tr>';
+        });
+        rebidHtml += '</table>';
+      } else {
+        rebidHtml = '<div style="color:#64748b;font-size:12px;">No rebid responses (single carrier or all held)</div>';
+      }
+
+      // Audit trail
+      let auditHtml = '';
+      q.audit_log.forEach(a => {
+        const time = new Date(a.timestamp).toLocaleTimeString();
+        const from = a.from_state || 'START';
+        const details = a.details ? '<div style="color:#64748b;font-size:10px;margin-left:16px;margin-top:1px;">' + a.details + '</div>' : '';
+        auditHtml += '<div class="audit-entry"><span class="time">' + time + '</span> <span class="state">[' + from + ' → ' + a.to_state + ']</span> <span class="action">' + a.action + '</span>' + details + '</div>';
+      });
+
+      // Action buttons
+      let actionsHtml = '';
+      if (q.state === 'AWAITING_APPROVAL') {
+        actionsHtml = `
+          <div class="action-bar">
+            <button class="btn btn-approve btn-sm" onclick="approveQuote('${q.id}')">Approve Quote</button>
+            <button class="btn btn-reject btn-sm" onclick="showReject('${q.id}')">Reject Quote</button>
+          </div>
+          <div style="font-size:10px;color:#64748b;margin-top:6px;font-style:italic;">MVP: Approve/reject simulated via API. In production, this would be a PandaDoc e-signature or customer portal with payment integration.</div>
+          <div id="reject-form" class="reject-reason hidden">
+            <input type="text" id="reject-reason" placeholder="Reason for rejection..." />
+            <button class="btn btn-reject btn-sm" style="margin-top:6px" onclick="rejectQuote('${q.id}')">Confirm Rejection</button>
+          </div>`;
+      }
+
+      let html = `
+        <!-- Header -->
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <div>
+              <span style="font-size:18px;font-weight:700;color:#e2e8f0;">${q.id}</span>
+              <span class="status-badge status-${q.state}" style="margin-left:8px;">${q.state}</span>
+            </div>
+            <div style="font-size:12px;color:#64748b;">${q.customer_id}</div>
+          </div>
+          <div style="font-size:12px;color:#94a3b8;">
+            ${q.request.origin} &rarr; ${q.request.destination}<br/>
+            ${q.request.weight_lbs.toLocaleString()} lbs &middot; ${q.request.pallets} pallets &middot; ${q.request.cargo_type}
+          </div>
+          ${actionsHtml}
+        </div>`;
+
+      if (w && m.sell_rate) {
+        html += `
+        <!-- Key Metrics -->
+        <div class="card">
+          <div style="display:flex;flex-wrap:wrap;gap:20px;">
+            <div class="metric"><div class="metric-value">$${m.sell_rate.toFixed(2)}</div><div class="metric-label">Customer Price</div></div>
+            <div class="metric"><div class="metric-value">$${m.cost.toFixed(2)}</div><div class="metric-label">Carrier Cost</div></div>
+            <div class="metric"><div class="metric-value">$${m.gross_profit.toFixed(2)}</div><div class="metric-label">Gross Profit</div></div>
+            <div class="metric"><div class="metric-value">${m.percent}%</div><div class="metric-label">Markup</div></div>
+            <div class="metric"><div class="metric-value">${w.transit_days ? w.transit_days + ' days' : 'TBD'}</div><div class="metric-label">Transit</div></div>
+            ${q.metrics.total_turnaround_display ? '<div class="metric"><div class="metric-value">' + q.metrics.total_turnaround_display + '</div><div class="metric-label">Turnaround</div></div>' : ''}
+          </div>
+        </div>
+
+        <!-- Winner -->
+        <div class="card">
+          <div class="card-header">Winner: ${w.carrier_name}</div>
+          <div style="font-size:12px;color:#94a3b8;margin-bottom:6px;">Benchmark rate: $${q.benchmark_rate ? q.benchmark_rate.toFixed(2) : '?'} &middot; ${w.is_rebid ? 'Won during rebid' : 'Won in first round'}</div>
+          <div style="font-size:10px;color:#64748b;margin-bottom:6px;font-style:italic;">MVP: Winner selected by lowest rate with tiebreaker (transit → response time → alphabetical). In production, weighted scoring with carrier reliability history.</div>
+          ${w.decision_explanation ? '<div class="summary-text">' + w.decision_explanation + '</div>' : ''}
+        </div>`;
+      }
+
+      html += `
+        <!-- Round 1 Bids -->
+        <div class="card">
+          <div class="card-header">Round 1 — Carrier Bids</div>
+          <div style="font-size:10px;color:#64748b;margin-bottom:6px;font-style:italic;">MVP: Rates simulated with randomized carrier behavior. In production, rates collected via carrier email/API integrations in real time.</div>
+          ${bidsHtml}
+        </div>
+
+        <!-- Rebid -->
+        <div class="card">
+          <div class="card-header">Rebid Round</div>
+          <div style="font-size:10px;color:#64748b;margin-bottom:6px;font-style:italic;">MVP: Rebid responses simulated. In production, carriers receive a real email with the benchmark and respond within a timed window.</div>
+          ${rebidHtml}
+        </div>`;
+
+      if (q.quote_output && q.quote_output.summary) {
+        html += `
+        <!-- Customer Quote -->
+        <div class="card">
+          <div class="card-header">Customer Quote</div>
+          <div style="font-size:10px;color:#64748b;margin-bottom:6px;font-style:italic;">MVP: Quote summary generated by Claude AI. In production, this would be formatted as a PandaDoc template with e-signature.</div>
+          <div class="summary-text">${q.quote_output.summary}</div>
+          <div style="font-size:11px;color:#64748b;margin-top:6px;">Valid until: ${q.quote_output.quote_expiry}</div>
+        </div>`;
+      }
+
+      if (q.approval && q.approval.status) {
+        html += `
+        <div class="card">
+          <div class="card-header">Decision</div>
+          <div style="font-size:14px;"><span class="status-badge status-${q.state}">${q.approval.status}</span></div>
+          ${q.approval.reason ? '<div style="font-size:12px;color:#94a3b8;margin-top:6px;">Reason: ' + q.approval.reason + '</div>' : ''}
+          ${q.metrics.total_turnaround_display ? '<div style="font-size:12px;color:#94a3b8;margin-top:4px;">Total turnaround: ' + q.metrics.total_turnaround_display + '</div>' : ''}
+        </div>`;
+      }
+
+      // Communications section
+      if (q.communications && q.communications.length > 0) {
+        let commsHtml = '';
+        q.communications.forEach(c => {
+          const time = new Date(c.sent_at).toLocaleTimeString();
+          commsHtml += '<div style="padding:6px 0;border-bottom:1px solid #1e293b;font-size:12px;">' +
+            '<div style="display:flex;justify-content:space-between;"><span style="color:#38bdf8;">To: ' + c.to + '</span><span style="color:#64748b;">' + time + '</span></div>' +
+            '<div style="color:#e2e8f0;font-weight:600;margin:2px 0;">' + c.subject + '</div>' +
+            '<div style="color:#94a3b8;white-space:pre-wrap;font-size:11px;max-height:80px;overflow:hidden;">' + c.body.substring(0, 200) + (c.body.length > 200 ? '...' : '') + '</div>' +
+            '</div>';
+        });
+        html += `
+        <div class="card">
+          <div class="card-header">Communications (${q.communications.length} emails)</div>
+          <div style="font-size:10px;color:#64748b;margin-bottom:8px;font-style:italic;">MVP: Email previews truncated to first 200 characters. In production, full email threads would be visible in a CRM-style view with open/reply tracking.</div>
+          ${commsHtml}
+        </div>`;
+      }
+
+      html += `
+        <!-- Audit Trail -->
+        <div class="card">
+          <div class="card-header">Audit Trail (${q.audit_log.length} entries)</div>
+          <div style="font-size:10px;color:#64748b;margin-bottom:6px;font-style:italic;">MVP: Stored in-memory. In production, this feeds into a structured logging system (Datadog/CloudWatch) with dashboards, weekly reporting, and carrier performance analytics.</div>
+          ${auditHtml}
+        </div>`;
+
+      document.getElementById('results').innerHTML = html;
+    }
+
+    function showReject(id) {
+      document.getElementById('reject-form').classList.remove('hidden');
+    }
+
+    async function approveQuote(id) {
+      const res = await fetch(API + '/api/quote/' + id + '/approve', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}'
+      });
+      const data = await res.json();
+      if (data.error) { alert(data.error); return; }
+      renderQuote(data.quote);
+      refreshQuotes();
+      refreshAnalytics();
+    }
+
+    async function rejectQuote(id) {
+      const reason = document.getElementById('reject-reason').value || 'No reason provided';
+      const res = await fetch(API + '/api/quote/' + id + '/reject', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason })
+      });
+      const data = await res.json();
+      if (data.error) { alert(data.error); return; }
+      renderQuote(data.quote);
+      refreshQuotes();
+      refreshAnalytics();
+    }
+
+    async function loadQuote(id) {
+      const res = await fetch(API + '/api/quote/' + id);
+      const data = await res.json();
+      if (data.quote) renderQuote(data.quote);
+    }
+
+    async function refreshQuotes() {
+      const res = await fetch(API + '/api/quotes');
+      const data = await res.json();
+      const el = document.getElementById('quotes-list');
+      if (data.count === 0) {
+        el.innerHTML = '<span style="color:#64748b;font-size:12px;">No quotes yet</span>';
+        return;
+      }
+      el.innerHTML = data.quotes.map(q =>
+        '<div class="quote-row" onclick="loadQuote(\'' + q.id + '\')">' +
+        '<span>' + q.id + ' — ' + q.customer_id + '</span>' +
+        '<span><span class="status-badge status-' + q.state + '">' + q.state + '</span>' +
+        (q.sell_rate ? ' $' + q.sell_rate.toFixed(2) : '') + '</span></div>'
+      ).join('');
+    }
+
+    async function refreshAnalytics() {
+      const res = await fetch(API + '/api/analytics');
+      const data = await res.json();
+      const el = document.getElementById('analytics-panel');
+
+      if (data.total_quotes === 0) {
+        el.innerHTML = '<span style="color:#64748b;font-size:12px;">Submit quotes to see analytics</span>';
+        return;
+      }
+
+      let carrierHtml = '';
+      if (data.win_rate_by_carrier) {
+        Object.keys(data.win_rate_by_carrier).forEach(name => {
+          const c = data.win_rate_by_carrier[name];
+          carrierHtml += '<div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0;"><span style="color:#94a3b8;">' + name + '</span><span style="color:#e2e8f0;">' + c.wins + '/' + c.bids + ' (' + c.win_rate + ')</span></div>';
+        });
+      }
+
+      let lostHtml = '';
+      if (data.lost_reasons && Object.keys(data.lost_reasons).length > 0) {
+        Object.keys(data.lost_reasons).forEach(reason => {
+          lostHtml += '<div style="font-size:11px;padding:2px 0;color:#94a3b8;">"' + reason + '" <span style="color:#ef4444;">x' + data.lost_reasons[reason] + '</span></div>';
+        });
+      } else {
+        lostHtml = '<div style="font-size:11px;color:#64748b;">None yet</div>';
+      }
+
+      el.innerHTML =
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;">' +
+          '<div style="background:#0f172a;padding:8px;border-radius:6px;text-align:center;"><div style="font-size:16px;font-weight:700;color:#38bdf8;">' + data.total_quotes + '</div><div style="font-size:9px;color:#64748b;">Total Quotes</div></div>' +
+          '<div style="background:#0f172a;padding:8px;border-radius:6px;text-align:center;"><div style="font-size:16px;font-weight:700;color:#22c55e;">' + data.quote_to_approval_conversion + '</div><div style="font-size:9px;color:#64748b;">Conversion Rate</div></div>' +
+          '<div style="background:#0f172a;padding:8px;border-radius:6px;text-align:center;"><div style="font-size:16px;font-weight:700;color:#f59e0b;">' + data.average_markup_percent + '</div><div style="font-size:9px;color:#64748b;">Avg Markup</div></div>' +
+          '<div style="background:#0f172a;padding:8px;border-radius:6px;text-align:center;"><div style="font-size:16px;font-weight:700;color:#22c55e;">' + data.average_margin_dollars + '</div><div style="font-size:9px;color:#64748b;">Avg Margin</div></div>' +
+          '<div style="background:#0f172a;padding:8px;border-radius:6px;text-align:center;"><div style="font-size:16px;font-weight:700;color:#e2e8f0;">' + data.total_revenue + '</div><div style="font-size:9px;color:#64748b;">Total Revenue</div></div>' +
+          '<div style="background:#0f172a;padding:8px;border-radius:6px;text-align:center;"><div style="font-size:16px;font-weight:700;color:#22c55e;">' + data.total_gross_profit + '</div><div style="font-size:9px;color:#64748b;">Total Profit</div></div>' +
+          '<div style="background:#0f172a;padding:8px;border-radius:6px;text-align:center;"><div style="font-size:16px;font-weight:700;color:#a78bfa;">' + data.average_intake_to_quote + '</div><div style="font-size:9px;color:#64748b;">Avg Quote Time</div></div>' +
+          '<div style="background:#0f172a;padding:8px;border-radius:6px;text-align:center;"><div style="font-size:16px;font-weight:700;color:#a78bfa;">' + data.average_turnaround + '</div><div style="font-size:9px;color:#64748b;">Avg Turnaround</div></div>' +
+        '</div>' +
+        '<div style="font-size:11px;color:#38bdf8;font-weight:600;margin:8px 0 4px;">Win Rate by Carrier</div>' +
+        carrierHtml +
+        '<div style="font-size:11px;color:#38bdf8;font-weight:600;margin:8px 0 4px;">Lost Reasons</div>' +
+        lostHtml;
+    }
+
+    // Load existing quotes and analytics on page load
+    refreshQuotes();
+    refreshAnalytics();
+  </script>
+</body>
+</html>
