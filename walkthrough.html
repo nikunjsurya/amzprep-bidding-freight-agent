@@ -76,7 +76,7 @@
 </head>
 <body>
 
-  <!-- SLIDE 1: Title -->
+  <!-- SLIDE 1: Intro + Pipeline -->
   <div class="slide active" id="slide-1">
     <h1>Freight Bidding Agent</h1>
     <div class="subtitle">Your current workflow takes 3-24 hours. This system does it in 15 seconds.</div>
@@ -86,7 +86,25 @@
       <div class="stat"><div class="big-number">4</div><div class="big-label">AI touchpoints</div></div>
       <div class="stat"><div class="big-number">~15s</div><div class="big-label">End-to-end</div></div>
     </div>
-    <div style="color:#64748b;font-size:13px;margin-top:30px;">Built by Nikunj for AMZ Prep | Node.js + Claude API</div>
+    <div class="flow" style="margin-top:30px;">
+      <div class="flow-step step-intake">INTAKE<div class="flow-detail">Validate + dedup</div></div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-step step-carriers">CARRIERS<div class="flow-detail">Filter + distribute</div></div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-step step-received">ROUND 1<div class="flow-detail">Collect + parse rates</div></div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-step step-rebid">REBID<div class="flow-detail">Benchmark + compete</div></div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-step step-quote">QUOTE<div class="flow-detail">Markup + send</div></div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-step" style="background:#f59e0b;color:#0f172a;">APPROVAL<div class="flow-detail">Awaiting customer</div></div>
+      <div class="flow-arrow">&rarr;</div>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <div class="flow-step step-approved" style="padding:8px 14px;min-width:100px;">APPROVED</div>
+        <div class="flow-step step-lost" style="padding:8px 14px;min-width:100px;">LOST</div>
+      </div>
+    </div>
+    <div style="color:#64748b;font-size:13px;margin-top:20px;">Built by Nikunj for AMZ Prep | Node.js + Claude API</div>
   </div>
 
   <!-- SLIDE 2: State Machine -->
@@ -450,19 +468,13 @@
   </div>
 
   <script>
-    // Reorder slides to match Sarah's presentation flow:
-    // 1. Show it running end to end → 2. Walk through decisions → 3. What you'd build next
+    // 3 slides only — matching Sarah's ask:
+    // 1. Intro + pipeline → LIVE DEMO → 2. Design decisions → 3. What I'd build next
+    // All other slides remain in the HTML for Blair to explore via the GitHub repo
     const SLIDE_ORDER = [
-      'slide-1',   // 1. Title + key stats
-      'slide-2',   // 2. State Machine (context before live demo)
-                   //    → SWITCH TO LIVE DEMO HERE ←
-      'slide-6',   // 3. Design Decisions (why these choices)
-      'slide-3',   // 4. Where AI Is Used (4 points only)
-      'slide-8',   // 5. Carrier Filtering Logic (step by step)
-      'slide-9',   // 6. When Things Go Wrong (failure layers)
-      'slide-4',   // 7. Communications Flow (emails at every stage)
-      'slide-5',   // 8. Blair's 10 Evaluation Criteria
-      'slide-7',   // 9. What I'd Build Next (production roadmap)
+      'slide-1',   // 1. Intro + pipeline (1 min, then switch to live demo)
+      'slide-6',   // 2. Why I built it this way (after demo, explain decisions)
+      'slide-7',   // 3. What I'd build next (close with production roadmap)
     ];
 
     let current = 0;
