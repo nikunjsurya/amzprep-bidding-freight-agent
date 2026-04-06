@@ -79,7 +79,7 @@
   <!-- SLIDE 1: Title -->
   <div class="slide active" id="slide-1">
     <h1>Freight Bidding Agent</h1>
-    <div class="subtitle">Replacing a 3-24 hour manual workflow with an AI-powered, near real-time quoting engine</div>
+    <div class="subtitle">Your current workflow takes 3-24 hours. This system does it in 15 seconds.</div>
     <div class="stats-row">
       <div class="stat"><div class="big-number">6</div><div class="big-label">Carriers competing</div></div>
       <div class="stat"><div class="big-number">2</div><div class="big-label">Bidding rounds</div></div>
@@ -91,8 +91,8 @@
 
   <!-- SLIDE 2: State Machine -->
   <div class="slide" id="slide-2">
-    <h2>The Agent Pipeline</h2>
-    <div class="subtitle">Every freight request flows through these states — no skipping, every transition logged</div>
+    <h2>How It Works</h2>
+    <div class="subtitle">Every request follows this pipeline — no steps skipped, every action logged</div>
     <div class="flow">
       <div class="flow-step step-intake">INTAKE<div class="flow-detail">Validate, dedup, create record</div></div>
       <div class="flow-arrow">&rarr;</div>
@@ -120,8 +120,8 @@
 
   <!-- SLIDE 3: Where AI Is Used -->
   <div class="slide" id="slide-3">
-    <h2>Where Claude AI Is Used (and Where It's Not)</h2>
-    <div class="subtitle">The state machine is deterministic. Claude handles the 4 places where human language understanding is needed.</div>
+    <h2>Where I Use AI (and Where I Don't)</h2>
+    <div class="subtitle">The core logic is rules-based. I only use Claude where human language understanding is needed.</div>
     <div class="ai-grid">
       <div class="ai-card uses-ai">
         <div class="ai-label purple">Claude AI</div>
@@ -151,7 +151,7 @@
       <div class="ai-card">
         <div class="ai-label gray">Graceful Fallback</div>
         <div class="ai-title">If Claude Goes Down</div>
-        <div class="ai-desc">Template fallbacks for all 4 AI uses. Pipeline never crashes from an LLM failure.</div>
+        <div class="ai-desc">Every AI call has a template fallback. If the LLM goes down, the pipeline keeps running.</div>
       </div>
     </div>
   </div>
@@ -159,7 +159,7 @@
   <!-- SLIDE 4: Communication Flow -->
   <div class="slide" id="slide-4">
     <h2>Automated Communications</h2>
-    <div class="subtitle">Every touchpoint triggers the right email to the right person</div>
+    <div class="subtitle">The system handles both conversations — customer-facing and carrier-facing — simultaneously</div>
     <div class="comm-flow">
       <div class="comm-row">
         <div class="comm-when">Request received</div>
@@ -205,7 +205,7 @@
 
   <!-- SLIDE 5: Evaluation Criteria -->
   <div class="slide" id="slide-5">
-    <h2>Blair's 10 Evaluation Criteria</h2>
+    <h2>How I Addressed Each Evaluation Criterion</h2>
     <div class="criteria-grid">
       <div class="criteria-card">
         <div class="criteria-num">1. Architecture Clarity</div>
@@ -262,8 +262,8 @@
 
   <!-- SLIDE 6: Design Decisions -->
   <div class="slide" id="slide-6">
-    <h2>Key Design Decisions</h2>
-    <div class="subtitle">The thinking behind the architecture — why it works this way</div>
+    <h2>Why I Built It This Way</h2>
+    <div class="subtitle">The key decisions I made and the reasoning behind each one</div>
     <div class="criteria-grid">
       <div class="criteria-card" style="border-left:3px solid #f59e0b;">
         <div class="criteria-num" style="color:#f59e0b;">Decision 1</div>
@@ -301,55 +301,55 @@
   <!-- SLIDE 7: What I'd Build Next -->
   <div class="slide" id="slide-7">
     <h2>What I'd Build Next</h2>
-    <div class="subtitle">Production roadmap — turning this MVP into a live freight quoting engine</div>
+    <div class="subtitle">How I'd take this from MVP to production — phased so you see value at each step</div>
     <div class="prod-grid">
       <div class="prod-card">
         <div class="prod-mvp">MVP: Simulated carrier responses</div>
-        <div class="prod-future">Phase 1: Gmail API intake — agent reads inbound emails, drafts replies if info is missing, forwards structured requests to carriers</div>
+        <div class="prod-future">Phase 1: Connect Gmail API — the agent reads freight@amzprep.com directly, drafts a reply if info is missing, and kicks off the pipeline automatically</div>
       </div>
       <div class="prod-card">
         <div class="prod-mvp">MVP: Hard-coded carrier reliability (70%, 90%)</div>
-        <div class="prod-future">Phase 1: Weekly auto-update — agent pulls audit trail data, calculates actual response rates, updates carrier profiles. One-click "refresh carrier intelligence" button.</div>
+        <div class="prod-future">Phase 1: The system already logs every carrier response. I'd add a weekly job that calculates real reliability scores from that data and updates carrier profiles automatically.</div>
       </div>
       <div class="prod-card">
         <div class="prod-mvp">MVP: Audit log as JSON array</div>
-        <div class="prod-future">Phase 2: Analytics dashboard — win rate by carrier, average margin by customer, turnaround trends, carrier competitiveness scores. Built from the same audit data we're already collecting.</div>
+        <div class="prod-future">Phase 2: Build a dashboard on top of the audit data we're already collecting — win rates, margins, turnaround trends, carrier competitiveness. The data is there, just needs a UI.</div>
       </div>
       <div class="prod-card">
         <div class="prod-mvp">MVP: In-memory store</div>
-        <div class="prod-future">Phase 2: PostgreSQL with proper indexing, backup, and query layer for the analytics dashboard</div>
+        <div class="prod-future">Phase 2: Move to PostgreSQL — proper indexing, backup, and the query layer the dashboard needs</div>
       </div>
       <div class="prod-card">
         <div class="prod-mvp">MVP: Carrier question = flagged for human</div>
-        <div class="prod-future">Phase 2: Agent auto-replies using intake data — "Pickup is 9am-noon, weight confirmed at 24,200 lbs" — keeps bidding moving without human intervention</div>
+        <div class="prod-future">Phase 2: The agent auto-replies with info from the intake record — "Pickup is 9am-noon, weight is 24,200 lbs" — keeps bidding moving without waiting for a human</div>
       </div>
       <div class="prod-card">
         <div class="prod-mvp">MVP: Approve/reject via button click</div>
-        <div class="prod-future">Phase 2: Smart email approval — agent reads customer reply ("yes that works", "go ahead", "approved"), understands intent, and auto-approves. Ambiguous replies flagged for human review.</div>
+        <div class="prod-future">Phase 2: The agent reads the customer's email reply — "yes that works", "go ahead" — understands the intent and auto-approves. Anything ambiguous gets flagged for a human.</div>
       </div>
       <div class="prod-card">
         <div class="prod-mvp">MVP: Fully automated winner selection</div>
-        <div class="prod-future">Phase 2: Human-in-the-loop — broker reviews the agent's recommendation before sending quote. Override option to pick a different carrier for relationship or performance reasons. Logged in audit trail.</div>
+        <div class="prod-future">Phase 2: The broker reviews the agent's recommendation before the quote goes out. If they want a different carrier for relationship reasons, one click to override. Everything logged.</div>
       </div>
       <div class="prod-card">
         <div class="prod-mvp">MVP: JSON quote output</div>
-        <div class="prod-future">Phase 3: PandaDoc integration for professional quote generation + e-signature approval flow</div>
+        <div class="prod-future">Phase 3: PandaDoc integration — professional formatted quotes with e-signature, just like your current workflow but automated</div>
       </div>
       <div class="prod-card">
         <div class="prod-mvp">MVP: Lowest rate wins</div>
-        <div class="prod-future">Phase 3: Weighted carrier scoring — price (70%) + transit speed (20%) + reliability history (10%). Configurable per customer.</div>
+        <div class="prod-future">Phase 3: Not just cheapest — weighted scoring: price 70%, transit speed 20%, reliability 10%. Configurable per customer.</div>
       </div>
       <div class="prod-card">
         <div class="prod-mvp">MVP: Unknown customer = error</div>
-        <div class="prod-future">Phase 3: Auto-onboard with default 10% markup, flag for sales team to configure terms. Never lose a deal because the customer isn't in the system.</div>
+        <div class="prod-future">Phase 3: New customer comes in? Create a profile with default 10% markup, flag sales to set up proper terms. Never lose a deal because someone isn't in the system yet.</div>
       </div>
     </div>
   </div>
 
   <!-- SLIDE 8: Carrier Filtering Logic -->
   <div class="slide" id="slide-8">
-    <h2>Carrier Filtering Logic</h2>
-    <div class="subtitle">Before contacting anyone, the system runs three filters in order</div>
+    <h2>How Carriers Get Filtered</h2>
+    <div class="subtitle">Before contacting anyone, the system applies three filters in order</div>
     <div style="display:flex;flex-direction:column;gap:16px;max-width:800px;">
       <div style="display:flex;align-items:center;gap:16px;">
         <div style="width:40px;height:40px;border-radius:50%;background:#3b82f6;display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0;">1</div>
@@ -396,7 +396,7 @@
   <!-- SLIDE 9: Failure Cascade -->
   <div class="slide" id="slide-9">
     <h2>When Things Go Wrong</h2>
-    <div class="subtitle">Every failure has a planned response — the system never crashes, never guesses, never loses data</div>
+    <div class="subtitle">I built a response for every failure scenario — the system never crashes, never guesses, never loses data</div>
     <div class="criteria-grid">
       <div class="criteria-card" style="border-left:3px solid #ef4444;">
         <div class="criteria-num" style="color:#ef4444;">Layer 1: Claude API Down</div>
@@ -442,7 +442,6 @@
   </div>
 
   <!-- Cheat sheet removed from public version -->
-  </div>
 
   <div class="nav">
     <button onclick="prevSlide()">&larr; Prev</button>
